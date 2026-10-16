@@ -1,0 +1,22 @@
+begin;
+insert into auth.users(id,email,email_confirmed_at) values('00000000-0000-4000-8000-000000000201','commands-admin@orchard.invalid',now());
+insert into public.team_members(email,role) values('commands-admin@orchard.invalid','admin');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000201","role":"authenticated"}',true);
+do $$ declare tree jsonb; fruit jsonb; season jsonb; care jsonb; note_count integer; begin
+ tree:=public.orchard_mutate('tree','save',null,null,'{"variety":"Command test","zone":"upper","planted":"2021","precision":"year","notes":"PRIVATE-NOTE"}');
+ if (tree->>'id') !~ '^D[0-9]+$' then raise exception 'Missing tree ID';end if;
+ tree:=public.orchard_mutate('tree','save',tree->>'id',1,'{"variety":"Updated","zone":"upper","notes":"Updated note"}');
+ begin perform public.orchard_mutate('tree','save',tree->>'id',1,'{}');raise exception 'Stale revision accepted';exception when serialization_failure then null;end;
+ fruit:=public.orchard_mutate('fruit','save',null,null,jsonb_build_object('tree',tree->>'id','year','2026','setDate','2026-05-10','status','growing','notes','PRIVATE-FRUIT'));
+ season:=public.orchard_mutate('season','save',null,null,jsonb_build_object('tree',tree->>'id','year','2026','kept','30','notes','PRIVATE-SEASON'));
+ care:=public.orchard_mutate('care','save',null,null,jsonb_build_object('date','2026-10-16','kind','water','scope','trees','trees',jsonb_build_array(tree->>'id')));
+ if not exists(select 1 from public.care_event_trees where care_id=(care->>'id')::uuid and tree_code=tree->>'id') then raise exception 'Care target missing';end if;
+ select count(*) into note_count from public.internal_notes where tree_code=tree->>'id' or fruit_id=(fruit->>'id')::uuid;
+ if note_count<>3 then raise exception 'Private notes not saved atomically';end if;
+ begin perform public.orchard_mutate('care','save',null,null,'{"date":"2026-10-16","kind":"water","scope":"trees","trees":["D-NOT-EXISTS"]}');raise exception 'Empty care target accepted';exception when raise_exception then if sqlerrm='Empty care target accepted' then raise;end if;end;
+ perform public.orchard_mutate('care','delete',care->>'id',1,'{}');
+ if exists(select 1 from public.care_event_trees where care_id=(care->>'id')::uuid) then raise exception 'Target cleanup failed';end if;
+end $$;
+rollback;
+select 'PASS: atomic commands, notes, automatic IDs, optimistic concurrency, care snapshots and rollback on invalid targets' as verification;

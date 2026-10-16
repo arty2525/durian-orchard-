@@ -1,0 +1,5 @@
+-- Reference configuration applied to Supabase Storage. Bucket created separately.
+create policy orchard_staff_upload on storage.objects for insert to authenticated with check(bucket_id='orchard-photos' and (select orchard_private.orchard_role()) in ('admin','editor'));
+create policy orchard_staff_read on storage.objects for select to authenticated using(bucket_id='orchard-photos' and ((select orchard_private.orchard_role()) in ('admin','editor') or (storage.allow_any_operation(array['object.get_authenticated_info','object.get_authenticated']) and exists(select 1 from public.photos p where p.storage_bucket=bucket_id and p.storage_key=name and p.published))));
+create policy orchard_staff_delete on storage.objects for delete to authenticated using(bucket_id='orchard-photos' and (select orchard_private.orchard_role()) in ('admin','editor'));
+create policy orchard_public_photo_read on storage.objects for select to anon using(bucket_id='orchard-photos' and storage.allow_any_operation(array['object.get_authenticated_info','object.get_authenticated']) and exists(select 1 from public.photos p where p.storage_bucket=bucket_id and p.storage_key=name and p.published));

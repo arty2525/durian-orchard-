@@ -148,7 +148,7 @@ grant usage,select on all sequences in schema public to service_role;
 create function orchard_private.before_record_change() returns trigger language plpgsql security invoker set search_path='' as $$
 begin
  if tg_op='UPDATE' then
-  if tg_table_name='trees' and new.code<>old.code then raise exception 'Tree code is permanent'; end if;
+  if tg_table_name='trees' then if new.code<>old.code then raise exception 'Tree code is permanent'; end if; end if;
   new.revision:=old.revision+1; new.updated_at:=now();
  end if;
  return new;

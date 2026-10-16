@@ -1,0 +1,22 @@
+import {createClient} from '@supabase/supabase-js';
+import {env} from 'cloudflare:workers';
+export const config=()=>({url:String((env as any).SUPABASE_URL||''),key:String((env as any).SUPABASE_PUBLISHABLE_KEY||'')});
+export function database(req:Request){const c=config();return createClient(c.url,c.key,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:req.headers.has('authorization')?{Authorization:req.headers.get('authorization')!}:{}}});}
+export async function who(req:Request,db=database(req)){if(!req.headers.get('authorization'))return null;const {data:{user},error}=await db.auth.getUser();if(error||!user)return null;const role=await db.rpc('orchard_identity');if(role.error)throw role.error;return {email:user.email||'',name:user.email?.split('@')[0]||'ทีมงาน',owner:role.data?.role==='admin',edit:['admin','editor'].includes(role.data?.role),id:user.id};}
+export const check=(r:any)=>{if(r.error)throw r.error;return r.data||[]};
+export const response=(d:any,status=200)=>Response.json(d,{status,headers:{'Cache-Control':'no-store'}});
+export function fail(e:any){const conflict=e.code==='40001'||e.code==='23505';return response({error:e.code==='23503'?'ข้อมูลนี้มีประวัติเชื่อมโยงอยู่ ไม่สามารถลบได้':e.code==='23505'?'ข้อมูลซ้ำ กรุณาโหลดใหม่':e.code==='42501'?'ไม่มีสิทธิ์ กรุณาเข้าสู่ระบบด้วยบัญชีทีมงาน':e.message||'ดำเนินการไม่สำเร็จ'},conflict?409:e.code==='42501'?403:400)}
+export function maintenance(){return (env as any).MIGRATION_MODE==='true'}
+export async function records(req:Request,staff:boolean,db=database(req)){
+ const names=['trees','fruits','seasons','photos','orchard_settings',...(staff?['care_events','care_event_trees','internal_notes','team_members']:[])];
+ async function every(name:string){const all:any[]=[];for(let offset=0;;offset+=1000){let q=db.from(name).select('*');const keys=name==='trees'?['code']:name==='team_members'?['email']:name==='seasons'?['tree_code','season_year']:name==='care_event_trees'?['care_id','tree_code']:['id'];for(const key of keys)q=q.order(key);const page=check(await q.range(offset,offset+999));all.push(...page);if(page.length<1000)break;}return {data:all,error:null}}const results=await Promise.all(names.map(every));const tables:any={};names.forEach((n,i)=>tables[n]=check(results[i]));const notes=tables.internal_notes||[];
+ const out:any[]=[];
+ for(const t of tables.trees)out.push({id:t.code,type:'tree',variety:t.variety,zone:t.zone,planted:t.planted||'',precision:t.planted_precision,firstYear:t.first_fruit_year?.toString()||'',revision:t.revision,updated:t.updated_at,notes:notes.find((n:any)=>n.tree_code===t.code&&n.season_year===null)?.notes||''});
+ for(const f of tables.fruits)out.push({id:f.id,type:'fruit',tree:f.tree_code,year:String(f.season_year),setDate:f.set_date||'',precision:f.set_precision,bloom:f.bloom_date||'',harvest:f.harvest_date||'',status:f.status,weight:f.weight_kg,quality:f.quality,revision:f.revision,updated:f.updated_at,notes:notes.find((n:any)=>n.fruit_id===f.id)?.notes||''});
+ for(const s of tables.seasons)out.push({id:s.tree_code+':'+s.season_year,type:'season',tree:s.tree_code,year:String(s.season_year),kept:s.kept,harvested:s.harvested,revision:s.revision,updated:s.updated_at,notes:notes.find((n:any)=>n.tree_code===s.tree_code&&n.season_year===s.season_year)?.notes||''});
+ for(const p of tables.photos)out.push({id:p.id,type:'photo',entity:p.tree_code||p.fruit_id,date:p.taken_date||'',caption:p.caption,published:p.published,key:p.storage_key,revision:p.revision,updated:p.updated_at});
+ for(const s of tables.orchard_settings)out.push({id:'settings',type:'settings',name:s.name,revision:s.revision,updated:s.updated_at});
+ for(const c of tables.care_events||[]){const ids=tables.care_event_trees.filter((t:any)=>t.care_id===c.id).map((t:any)=>t.tree_code);out.push({id:c.id,type:'care',date:c.event_date,kind:c.kind,scope:c.scope,name:c.product,amount:c.amount,notes:c.notes,trees:ids,targets:ids,revision:c.revision,updated:c.updated_at})}
+ for(const m of tables.team_members||[])if(m.active&&m.role==='editor')out.push({id:m.email,type:'member',email:m.email,name:m.display_name,revision:m.revision,updated:m.updated_at});
+ return out;
+}
