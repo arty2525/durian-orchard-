@@ -69,7 +69,7 @@ begin
  when 'photo' then
   if k is not null then raise exception 'แก้ภาพโดยเพิ่มภาพใหม่';end if;
   if d->>'entity' ~ '^D[0-9]+$' then t:=d->>'entity';f:=null;else t:=null;f:=(d->>'entity')::uuid;end if;
-  insert into public.photos(tree_code,fruit_id,taken_date,caption,published,storage_key) values(t,f,nullif(d->>'date',''),coalesce(d->>'caption',''),coalesce((d->>'published')::boolean,false),d->>'key') returning id,revision into noteid,rev;k:=noteid::text;
+  insert into public.photos(tree_code,fruit_id,taken_date,caption,published,storage_key,circumference_cm,height_m) values(t,f,nullif(d->>'date',''),coalesce(d->>'caption',''),coalesce((d->>'published')::boolean,false),d->>'key',nullif(d->>'circumference','')::numeric,nullif(d->>'height','')::numeric) returning id,revision into noteid,rev;k:=noteid::text;
  end case;
  if p_type in ('tree','fruit','season') then
   if p_type='fruit' then select id into noteid from public.internal_notes where fruit_id=k::uuid;

@@ -1,0 +1,26 @@
+import fs from 'node:fs';import vm from 'node:vm';import ts from 'typescript';import assert from 'node:assert/strict';
+function load(path){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,{exports});return exports}
+const {trackingFor}=load('lib/orchard-tracking.ts');const {photoMeasurements}=load('lib/orchard-validation.ts');
+const tree={type:'tree',id:'D0001'},fruit={type:'fruit',id:'f1',setDate:'2026-04-01',status:'growing'};
+assert.equal(trackingFor(tree,[],'2026-10-17').kind,'first');
+assert.equal(trackingFor(tree,[{entity:'D0001',date:'2026-10-01'}],'2026-10-17').kind,'first','An image without measurements must not mark annual measurements complete');
+let p={entity:'D0001',date:'2026-10-01',circumference:45.5,height:3.2};
+let plan=trackingFor(tree,[p],'2026-10-17');assert.equal(plan.date,'2027-10-01');assert.equal(plan.due,false);
+assert.equal(trackingFor(tree,[p],'2027-10-01').due,true);
+assert.equal(trackingFor(tree,[{...p,date:'2024-02-29'}],'2024-03-01').date,'2025-02-28');
+assert.equal(trackingFor(tree,[{...p,date:'2025'}],'2026-01-01').date,'2026');
+assert.equal(trackingFor(tree,[{...p,entity:'D0002'}],'2026-10-17').kind,'first');
+plan=trackingFor(fruit,[],'2026-04-10');assert.equal(plan.date,'2026-04-15');assert.equal(plan.due,false);
+assert.equal(trackingFor(fruit,[],'2026-04-15').due,true);
+assert.equal(trackingFor(fruit,[{entity:'f1',date:'2026-04-15'}],'2026-04-20').date,'2026-04-29');
+assert.equal(trackingFor(fruit,[{entity:'D0001',date:'2026-04-20'}],'2026-04-20').date,'2026-04-15');
+assert.equal(trackingFor({...fruit,status:'harvested'},[],'2026-10-17').due,false);
+assert.equal(trackingFor({...fruit,harvest:'2026-07-01'},[],'2026-10-17').kind,'finished');
+assert.equal(trackingFor({...fruit,status:'fallen'},[],'2026-10-17').kind,'finished');
+assert.equal(trackingFor({...fruit,setDate:''},[],'2026-10-17').kind,'missing');
+assert.equal(trackingFor({...fruit,setDate:'2026-02-31'},[],'2026-10-17').kind,'missing');
+assert.equal(photoMeasurements('D0001',{circumference:'45.5',height:'3.2'}).height,3.2);
+assert.equal(photoMeasurements('D0001',{}).circumference,null);
+for(const b of [{height:-1},{height:'NaN'},{height:101},{circumference:10001}])assert.throws(()=>photoMeasurements('D0001',b));
+assert.throws(()=>photoMeasurements('f1',{height:3.2}),/ภาพต้น/);
+console.log('PASS annual/14-day schedules, leap years, partial years, entity isolation, harvest stop and measurement validation');

@@ -85,7 +85,7 @@ create index care_event_trees_tree_idx on public.care_event_trees(tree_code);
 create table public.photos (
  id uuid primary key default gen_random_uuid(), tree_code text references public.trees(code) on delete restrict,
  fruit_id uuid references public.fruits(id) on delete restrict,
- taken_date text check(orchard_private.valid_partial_date(taken_date)), caption text not null default '',
+ circumference_cm numeric constraint photo_circumference_valid check(circumference_cm>=0 and circumference_cm<=10000),height_m numeric constraint photo_height_valid check(height_m>=0 and height_m<=100),constraint photo_tree_measurements_only check(tree_code is not null or (circumference_cm is null and height_m is null)),taken_date text check(orchard_private.valid_partial_date(taken_date)), caption text not null default '',
  published boolean not null default false, storage_bucket text not null default 'orchard-photos', storage_key text not null unique,
  revision integer not null default 1, created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
  check(num_nonnulls(tree_code,fruit_id)=1)
