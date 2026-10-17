@@ -3,3 +3,139 @@
 .auditList details{border-top:1px solid var(--line);padding:12px 0;font-size:11px}.auditList summary{cursor:pointer;overflow-wrap:anywhere}.auditList pre{overflow:auto;background:#f6f8f1;padding:12px;max-height:250px;font-size:10px}
 .dateMode{display:flex;gap:5px;margin-bottom:2px}.dateMode button{font-size:10px;padding:7px 9px;flex:1;white-space:nowrap}.dateMode .chosen{background:#eaf1e3;border-color:#b6c9a7;color:#365d31}.photoPicker{padding:17px;border:1px dashed #c7d4bc;border-radius:10px;background:#f8faf5}.photoButtons{display:flex;gap:10px;flex-wrap:wrap}.photoButtons button{font-size:12px;flex:1}.hiddenFile{display:none}.photoPreview{display:flex;align-items:center;gap:12px;background:white;border:1px solid var(--line);border-radius:8px;padding:9px;margin-top:8px}.photoPreview>img{width:76px;height:76px;border-radius:6px;object-fit:cover}.photoPreview>div{min-width:0;flex:1}.photoPreview b{display:block;font-size:11px;overflow-wrap:anywhere}.photoPreview small{display:block}input[type=date]{min-height:44px;appearance:auto;-webkit-appearance:auto;min-width:0}
 .authPanel{padding:24px 26px}.authPanel form{display:grid;gap:18px;margin:20px 0}.authPanel .alert{margin:0}.authTabs{display:flex;gap:8px}.authTabs button{flex:1;font-size:12px}.authTabs .chosen{background:#eaf1e3;border-color:#b6c9a7}.imageLoading{height:210px;display:flex;align-items:center;justify-content:center;background:#f1f5eb;color:#8d9f80;font-size:11px}
+
+/* Keep wide tables and long record IDs inside their own scrolling area. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{overflow-wrap:break-word}
+.app,.workspace,.workspace main,.panel,.tableWrap,.dashboardGrid,.stats,.facts,.photoGrid,.field{min-width:0}
+.workspace{flex:1 1 0;max-width:100%}
+.workspace main{width:100%}
+.dashboardGrid{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+.stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+.photoGrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.facts{grid-template-columns:repeat(4,minmax(0,1fr))}
+.panel,.stat,.facts>div,.sectionHead>div,.zoneRow>div,.careRow>div,.pageHeading>div,.memberRow>div,.settingsRow>div{min-width:0}
+.tableWrap{max-width:100%;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.facts strong,.detailHero h2,.memberRow small,.careRow p,.alert{overflow-wrap:anywhere}
+.menuBackdrop{display:none}
+@media(max-width:1150px){.photoGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:850px){
+ .workspace{width:100%;margin-left:0}
+ .sidebar{width:min(300px,85vw);height:100dvh;overflow-y:auto;padding-bottom:max(20px,env(safe-area-inset-bottom));overscroll-behavior:contain}
+ .sidebar .brand{padding-bottom:22px}
+ .sidebar nav button{min-height:46px;font-size:14px}
+ .sidebarBottom{padding-top:20px}
+ .menuBackdrop{display:block;position:fixed;inset:0;z-index:19;border:0;border-radius:0;background:#16271d70;padding:0}
+ .menuBackdrop:hover{background:#16271d70}
+ .topbar{position:sticky;top:0;z-index:15;min-width:0}
+ .topbar>div{min-width:0}
+ .topbar>div:last-child{flex-shrink:0}
+}
+@media(max-width:600px){
+ .workspace main{padding:20px 16px max(24px,env(safe-area-inset-bottom))}
+ .topbar{padding:0 12px;height:60px}
+ .topbar>div{font-size:12px;gap:5px}
+ .topbar>div:first-child>span.muted,.topbar>div:first-child>svg{display:none}
+ .topbar b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ button,.primary,.iconBtn{min-height:44px}
+ .iconBtn{min-width:44px}
+ .pageHeading{flex-wrap:wrap;align-items:center;margin-bottom:20px;gap:12px}
+ .pageHeading>div{flex:1 1 200px}
+ .pageHeading h1{font-size:24px;line-height:1.5;overflow-wrap:anywhere}
+ .pageHeading p{max-width:none;font-size:12px}
+ .pageHeading>.primary{margin-top:0;font-size:13px;padding:10px 14px}
+ .welcome{padding:24px 20px;min-height:220px;margin-bottom:16px}
+ .welcome>div:first-child{max-width:100%;padding-right:38px;position:relative}
+ .welcome h2{font-size:clamp(21px,5.8vw,26px);line-height:1.5;overflow-wrap:anywhere}
+ .welcome p{font-size:12px;line-height:1.9}
+ .welcome>svg{width:130px;height:140px;right:-32px;bottom:8px;opacity:.32;pointer-events:none}
+ .welcome button,.welcome .primary{font-size:13px;padding:10px 14px}
+ .heroCaption{display:none}
+ .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .stat{padding:14px 12px}
+ .stat>div{font-size:12px;gap:6px;align-items:flex-start}
+ .stat>div>span{min-width:0}
+ .stat svg{flex-shrink:0;width:18px;height:18px}
+ .stat h2{font-size:30px;margin:12px 0 8px;letter-spacing:-.5px}
+ .stat h2 small{display:block;margin:4px 0 0;font-size:11px;letter-spacing:0}
+ .stat p{font-size:11px;line-height:1.7}
+ .dashboardGrid{grid-template-columns:minmax(0,1fr);gap:0}
+ .panel{padding:18px 16px;margin-bottom:16px}
+ .noPadding{padding:0}
+ .sectionHead{flex-wrap:wrap;gap:10px}
+ .sectionHead h3{font-size:17px}
+ .sectionHead .primary{font-size:12px;padding:8px 12px;white-space:normal}
+ .sectionHead .text{font-size:12px}
+ .zoneIcon{flex:0 0 44px;width:44px;height:44px}
+ .zoneRow{gap:12px;padding:16px 0}
+ .zoneRow b,.careRow b{font-size:14px}
+ .zoneRow small,.careRow small{font-size:12px;line-height:1.7}
+ .zoneRow>svg{flex-shrink:0}
+ .progressRow>div:first-child{font-size:13px;gap:10px}
+ .progressRow b{flex-shrink:0}
+ .note{font-size:12px}
+ .toolbar>.search{min-width:0;width:100%;flex:1 1 100%}
+ .toolbar>select{min-width:0;max-width:100%;font-size:16px;flex:1 1 150px}
+ .search input{font-size:16px;min-width:0}
+ .toolbar>button{font-size:13px;white-space:normal}
+ th,td{padding:13px 12px;font-size:12px}
+ .treeLink{font-size:13px}
+ .detailHero{padding:18px 16px}
+ .detailHero>div{min-width:0}
+ .detailActions{flex-wrap:wrap;gap:8px}
+ .detailActions button{font-size:13px;flex:1 1 110px}
+ .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .facts>div{padding:14px 12px}
+ .facts small{font-size:12px}
+ .facts strong{font-size:15px;line-height:1.6}
+ .compact>div{padding:10px 0}
+ .photoGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .photoGrid img{height:145px}
+ .photoGrid b,.photoGrid p{font-size:13px;overflow-wrap:anywhere}
+ .photoGrid span{font-size:12px;overflow-wrap:anywhere}
+ .careRow{flex-wrap:wrap;gap:8px}
+ .careRow>div{flex:1 1 calc(100% - 48px)}
+ .careRow>.text{font-size:13px;padding:8px 12px}
+ .memberRow{gap:10px}
+ .memberRow>div{flex:1 1 calc(100% - 50px)}
+ .memberRow b{font-size:14px}
+ .memberRow small{font-size:12px}
+ .settingsRow{flex-wrap:wrap}
+ .settingsRow button{font-size:13px}
+ .startPanel>div{min-width:0;flex:1 1 200px}
+ .startPanel p{font-size:12px}
+ .qrIntro{padding:24px 20px;gap:12px}
+ .qrIntro>div{min-width:0}
+ .qrIntro>svg{flex:0 0 64px;width:64px}
+ .qrIntro h2{font-size:24px}
+ .qrIntro p{font-size:12px}
+ .modalOverlay{padding:12px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+ .modal{width:100%;max-width:100%;max-height:calc(100dvh - 32px);overscroll-behavior:contain}
+ .modalHead{padding:16px;gap:8px}
+ .modalHead>div{min-width:0}
+ .modalHead h2{font-size:19px;overflow-wrap:anywhere}
+ .fields{padding:18px 16px;grid-template-columns:minmax(0,1fr)}
+ .field{font-size:14px}
+ .field input,.field select,.field textarea,.authPanel input,.lookup input{font-size:16px;min-width:0;max-width:100%}
+ .field small{font-size:12px}
+ .dateMode{flex-wrap:wrap}
+ .dateMode button{font-size:12px;flex:1 1 75px;padding:8px 6px}
+ .photoPicker{padding:12px}
+ .photoButtons button{font-size:13px;flex:1 1 130px}
+ .modalFooter{padding:14px 16px;position:sticky;bottom:0;background:white;z-index:1}
+ .modalFooter button{flex:1;font-size:14px}
+ .authPanel{padding:18px 16px}
+ .authPanel .small{font-size:13px}
+ .authTabs button{font-size:14px;min-width:0}
+ .authPanel .text{font-size:14px}
+ .publicHead{height:auto;min-height:64px;gap:12px;flex-wrap:wrap;padding:12px 16px}
+ .publicHead a{min-width:0;overflow-wrap:anywhere}
+ .publicMain{padding:0 16px;margin-top:24px}
+ .publicHero{padding:22px 16px;gap:8px}
+ .publicHero svg{width:82px;flex-shrink:0}
+ .publicHero h2{font-size:20px}
+ .footnote{font-size:12px;line-height:1.8}
+ footer{flex-wrap:wrap;font-size:11px;line-height:1.8}
+ .toast{bottom:max(16px,env(safe-area-inset-bottom));width:max-content;max-width:calc(100vw - 32px);padding:12px 16px}
+}
+@media(max-width:360px){.photoGrid{grid-template-columns:minmax(0,1fr)}.pageHeading>.primary{width:100%}.welcome>div:first-child{padding-right:0}.stat>div{font-size:11px}}
