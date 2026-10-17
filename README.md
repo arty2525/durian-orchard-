@@ -1,12 +1,14 @@
 # Durian Orchard — ระบบบริหารสวนทุเรียน
 
-เว็บใช้งาน: https://durian-orchard-art.siwat-t36.chatgpt.site
-โค้ด: https://github.com/arty2525/durian-orchard-
+เว็บใช้งาน: [เปิดระบบสวนทุเรียนบน GitHub Pages](https://arty2525.github.io/durian-orchard-/)
+
+โค้ด: [arty2525/durian-orchard-](https://github.com/arty2525/durian-orchard-)
+
 ฐานข้อมูลและรูปภาพ: Supabase project `durian-orchard`
 
 ระบบทะเบียนต้นและผลพร้อม QR, รหัสต้นอัตโนมัติ, ปฏิทิน/ข้อมูลเฉพาะปี, กล้องมือถือ, ประวัติการดูแล, ผลผลิตรายปี และทีมงาน 5 คน
 API ใช้ Supabase PostgreSQL และ Storage แล้ว การล็อกอินเปลี่ยนเป็นอีเมล/รหัสผ่านของเว็บสวน ไม่ใช้บัญชี ChatGPT
-เว็บยังเผยแพร่ที่ URL เดิม จึงไม่กระทบลิงก์ QR
+เว็บเผยแพร่บน GitHub Pages และเชื่อมต่อ Supabase โดยตรง ลิงก์ QR ที่สร้างจากเว็บนี้ใช้ที่อยู่ GitHub Pages
 
 ## เริ่มใช้
 
