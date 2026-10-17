@@ -6,7 +6,7 @@ try{
  const {clean}=await server.ssrLoadModule('/../lib/orchard-validation.ts');
  assert.equal(clean('tree',{zone:'upper',subzone:'7'},[]).subzone,7);
  assert.equal(clean('tree',{zone:'lower',subzone:'7'},[]).subzone,null);
- assert.throws(()=>clean('tree',{zone:'upper',subzone:'8'},[]),/โซนย่อย/);
+ assert.throws(()=>clean('tree',{zone:'upper',subzone:'8'},[]),/โซนบน/);
  const {appUrl}=await server.ssrLoadModule('/../app/orchard-auth.tsx');
  globalThis.location=new URL('https://arty2525.github.io/durian-orchard-/?kind=tree&id=D0001');
  assert.equal(appUrl(),'https://arty2525.github.io/durian-orchard-/');
