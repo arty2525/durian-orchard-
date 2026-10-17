@@ -48,6 +48,7 @@ create table public.trees (
  planted text check(orchard_private.valid_partial_date(planted)),
  planted_precision text not null default 'unknown' check(planted_precision in ('unknown','exact','year','approx')),
  first_fruit_year integer check(first_fruit_year between 1900 and 2200),
+ subzone smallint constraint trees_subzone_valid check (subzone is null or (zone='upper' and subzone between 1 and 7)),
  revision integer not null default 1, created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
 create index trees_zone_idx on public.trees(zone);

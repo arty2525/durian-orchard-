@@ -3,6 +3,10 @@ import {createServer} from 'vite';
 const server=await createServer({configFile:'vite.pages.config.ts',server:{middlewareMode:true}});
 try{
  const {pagesApi}=await server.ssrLoadModule('/../lib/orchard-pages-api.ts');
+ const {clean}=await server.ssrLoadModule('/../lib/orchard-validation.ts');
+ assert.equal(clean('tree',{zone:'upper',subzone:'7'},[]).subzone,7);
+ assert.equal(clean('tree',{zone:'lower',subzone:'7'},[]).subzone,null);
+ assert.throws(()=>clean('tree',{zone:'upper',subzone:'8'},[]),/โซนย่อย/);
  const {appUrl}=await server.ssrLoadModule('/../app/orchard-auth.tsx');
  globalThis.location=new URL('https://arty2525.github.io/durian-orchard-/?kind=tree&id=D0001');
  assert.equal(appUrl(),'https://arty2525.github.io/durian-orchard-/');
