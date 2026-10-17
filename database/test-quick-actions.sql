@@ -1,0 +1,35 @@
+begin;
+select set_config('request.jwt.claims',jsonb_build_object('sub',u.id,'role','authenticated')::text,true) is not null as test_context_ready from auth.users u join public.team_members m on lower(u.email)=m.email where m.active and m.role='admin' and u.email_confirmed_at is not null limit 1;
+set local role authenticated;
+do $$
+declare a uuid;b uuid;c uuid;result jsonb;targets text[];revision integer;row_data public.fruits%rowtype;event_id uuid;
+begin
+ perform public.orchard_bulk('fruit_defaults','{}',jsonb_build_object('year',2026,'weight',2.5,'size','medium','expectedHarvest','2026-12-10'),true,false);
+ insert into public.fruits(tree_code,season_year,set_date,weight_kg,size_label,harvest_date,status) values('D0001',2026,'2026-01-01',3.8,'large','2026-10-01','harvested') returning id into a;
+ insert into public.fruits(tree_code,season_year,set_date) values('D0002',2026,'2026-01-01') returning id into b;
+ insert into public.fruits(tree_code,season_year) values('D0003',2027) returning id into c;
+ if (select estimated_weight_kg from public.fruits where id=b)<>2.5 then raise exception 'New-fruit default not inherited';end if;
+ if (select estimated_weight_kg from public.fruits where id=c) is not null then raise exception 'Default crossed season boundary';end if;
+ result:=public.orchard_bulk('fruit_defaults',array[a::text,b::text],jsonb_build_object('year',2026,'weight',4.5,'size','small','expectedHarvest','2026-12-20'),false,true);
+ if (result->>'applied')::integer<>0 then raise exception 'Existing defaults changed without overwrite';end if;
+ result:=public.orchard_bulk('fruit_defaults',array[a::text,b::text],jsonb_build_object('year',2026,'weight',4.5,'size','small','expectedHarvest','2026-12-20','overwrite',true),false,true);
+ if (result->>'applied')::integer<>2 then raise exception 'Bulk default did not update 2 records';end if;
+ select * into row_data from public.fruits where id=a;
+ if row_data.weight_kg<>3.8 or row_data.size_label<>'large' or row_data.harvest_date<>'2026-10-01'::date or row_data.estimated_weight_kg<>4.5 then raise exception 'Actual data was overwritten';end if;
+ if (select status from public.fruits where id=b)<>'growing' then raise exception 'Defaults falsely marked fruit harvested';end if;
+ result:=public.orchard_bulk('harvest',array[a::text,b::text],jsonb_build_object('year',2026,'date','2026-10-17'),false,true);
+ if (result->>'applied')::integer<>1 then raise exception 'Harvest failed to preserve previously harvested fruit';end if;
+ if (select harvest_date from public.fruits where id=a)<>'2026-10-01'::date then raise exception 'Prior actual harvest overwritten';end if;
+ select array_agg(code) into targets from public.trees;
+ result:=public.orchard_bulk('fertilizer',targets,jsonb_build_object('name','test 15-15-15','amount','500 g per tree','date','2026-10-17','isPlanned',true),true,true);
+ event_id:=(result->>'eventId')::uuid;
+ if (select count(*) from public.care_event_trees where care_id=event_id)<>400 then raise exception 'Expected 400 tree snapshot targets';end if;
+ if not (select is_planned from public.care_events where id=event_id) then raise exception 'Plan marked actual';end if;
+ result:=public.orchard_mutate(p_type=>'fruit',p_data=>jsonb_build_object('tree','D0004','year',2026,'size','medium','expectedHarvest','2026-12-15','estimatedWeight',3.3,'estimatedSize','small'));
+ if not exists(select 1 from public.fruits where id=(result->>'id')::uuid and size_label='medium' and estimated_weight_kg=3.3 and expected_harvest_date='2026-12-15') then raise exception 'Individual fruit RPC fields missing';end if;
+ result:=public.orchard_mutate(p_type=>'care',p_data=>jsonb_build_object('scope','trees','trees',jsonb_build_array('D0001'),'date','2026-10-17','kind','fertilizer','isPlanned',true));
+ if not (select is_planned from public.care_events where id=(result->>'id')::uuid) then raise exception 'Individual care RPC lost planned flag';end if;
+end $$;
+set local role anon;
+do $$ begin if has_table_privilege('public.orchard_defaults','select') then raise exception 'Private defaults exposed to anon';end if;begin perform public.orchard_bulk('fertilizer',array['D0001'],'{}',false,true);raise exception 'Anonymous bulk write accepted';exception when insufficient_privilege then null;end;end $$;
+rollback;
