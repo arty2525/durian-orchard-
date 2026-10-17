@@ -18,7 +18,7 @@ begin
  if p_action='initialize' then
   perform pg_advisory_xact_lock(83190402);
   if exists(select 1 from public.trees) or exists(select 1 from public.audit_log where table_name='trees') or exists(select 1 from public.legacy_audit where record_id ~ '^D[0-9]+$' or action='initialize') then raise exception 'มีทะเบียนหรือประวัติรหัสต้นแล้ว ไม่สามารถสร้างซ้ำ'; end if;
-  insert into public.trees(variety) select '' from generate_series(1,400);return jsonb_build_object('ok',true);
+  insert into public.trees(variety) select '' from generate_series(1,192);return jsonb_build_object('ok',true);
  end if;
  case p_type
  when 'tree' then if k is not null then select revision into rev from public.trees where code=k for update; end if;
@@ -55,8 +55,8 @@ begin
   if k is null then t:=d->>'tree';yr:=(d->>'year')::integer;insert into public.seasons(tree_code,season_year,kept,harvested) values(t,yr,nullif(d->>'kept','')::integer,nullif(d->>'harvested','')::integer) returning revision into rev;k:=t||':'||yr;
   else if t<>d->>'tree' or yr<>(d->>'year')::integer then raise exception 'การเปลี่ยนต้นหรือฤดูกาลให้สร้างรายการใหม่'; end if;update public.seasons set kept=nullif(d->>'kept','')::integer,harvested=nullif(d->>'harvested','')::integer where tree_code=t and season_year=yr returning revision into rev;end if;
  when 'care' then
-  if d->>'scope'='trees' then select array_agg(code) into targets from public.trees where code in (select jsonb_array_elements_text(d->'trees'));
-  else select array_agg(code) into targets from public.trees where d->>'scope'='all' or zone=d->>'scope'; end if;
+  if d->>'scope'='trees' then select array_agg(code) into targets from public.trees where not archived and code in (select jsonb_array_elements_text(d->'trees'));
+  else select array_agg(code) into targets from public.trees where not archived and (d->>'scope'='all' or zone=d->>'scope'); end if;
   if coalesce(array_length(targets,1),0)=0 then raise exception 'ไม่พบต้นในพื้นที่หรือรหัสที่เลือก'; end if;
   if k is null then insert into public.care_events(event_date,kind,scope,product,amount,notes) values((d->>'date')::date,d->>'kind',d->>'scope',coalesce(d->>'name',''),coalesce(d->>'amount',''),coalesce(d->>'notes','')) returning id,revision into f,rev;k:=f::text;
   else update public.care_events set event_date=(d->>'date')::date,kind=d->>'kind',scope=d->>'scope',product=coalesce(d->>'name',''),amount=coalesce(d->>'amount',''),notes=coalesce(d->>'notes','') where id=k::uuid returning revision into rev;delete from public.care_event_trees where care_id=k::uuid;end if;

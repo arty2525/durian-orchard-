@@ -10,7 +10,7 @@ create table public.orchard_settings (
  id boolean primary key default true check (id), name text not null default '',
  upper_rai numeric(8,2) not null default 5 check (upper_rai>=0),
  lower_rai numeric(8,2) not null default 3 check (lower_rai>=0),
- expected_trees integer not null default 400 check(expected_trees>=0),
+ expected_trees integer not null default 384 check(expected_trees>=0),
  revision integer not null default 1, updated_at timestamptz not null default now()
 );
 create table public.team_members (
@@ -44,6 +44,7 @@ revoke all on function orchard_private.next_tree_code() from public,anon;
 grant execute on function orchard_private.next_tree_code() to authenticated,service_role;
 create table public.trees (
  code text primary key default orchard_private.next_tree_code() check(code ~ '^D[0-9]{4,}$'),
+ archived boolean not null default false, stem_count integer not null default 2 check(stem_count between 1 and 20),
  variety text not null default '', zone text not null default 'unknown' check(zone in ('upper','lower','unknown')),
  planted text check(orchard_private.valid_partial_date(planted)),
  planted_precision text not null default 'unknown' check(planted_precision in ('unknown','exact','year','approx')),

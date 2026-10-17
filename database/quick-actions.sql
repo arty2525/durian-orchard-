@@ -44,7 +44,7 @@ begin
  if p_apply then
   if p_kind='fertilizer' then
    perform 1 from public.trees where code=any(ids) order by code for update;
-   select count(*) into matched from public.trees where code=any(ids);if matched<>requested then raise exception 'ทะเบียนต้นเปลี่ยนไป กรุณาโหลดข้อมูลใหม่';end if;
+   select count(*) into matched from public.trees where not archived and code=any(ids);if matched<>requested then raise exception 'ทะเบียนต้นเปลี่ยนไป กรุณาโหลดข้อมูลใหม่';end if;
    insert into public.care_events(event_date,kind,scope,product,amount,notes,is_planned) values(day,'fertilizer','trees',product,amount,left(coalesce(d->>'notes',''),1000),planned) returning id into event_id;
    insert into public.care_event_trees(care_id,tree_code) select event_id,unnest(ids);changed:=requested;
   else
