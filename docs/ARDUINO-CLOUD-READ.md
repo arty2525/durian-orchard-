@@ -22,3 +22,7 @@ Cloud stored relay values are not proof of physical relay state. A property may 
 Missing API secrets returns configured:false. Live Arduino calls cannot be validated until credentials are configured.
 
 The new tab remains a local schedule draft and local-IP diagnostics launcher; ESP32 telemetry is not connected yet.
+
+
+## Web configuration
+Admins can now configure Arduino Cloud from the irrigation page. The form tests OAuth and a read of Thing properties, then saves one encrypted JSON value in Supabase Vault via an admin-checked RPC. The reader uses this value before environment-variable fallback. Secret values are never returned to the browser, embedded in built assets, or stored in localStorage. Other staff can read telemetry but cannot configure credentials. The bridge never issues irrigation commands.

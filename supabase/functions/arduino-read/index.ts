@@ -1,21 +1,19 @@
-// Read-only Arduino Cloud bridge. No device key, service role or write endpoint.
+// Arduino Cloud reads + admin settings. Never sends physical control commands.
 declare const Deno:{env:{get:(name:string)=>string|undefined};serve:(handler:(req:Request)=>Promise<Response>)=>void};
 const allowed = new Set(['https://arty2525.github.io','https://durian-orchard-art.siwat-t36.chatgpt.site']);
-let token = '', tokenUntil = 0;
-let cached: unknown = null, cachedUntil = 0;
 async function jsonFetch(url:string,init:RequestInit={}):Promise<any> {
   const response = await fetch(url,{...init,signal:AbortSignal.timeout(10000)});
   if (!response.ok) throw new Error('upstream_'+response.status);
-  return response.json();
+  const body=await response.text();return body?JSON.parse(body):null;
 }
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get('origin')||'';
- const headers:Record<string,string>={'Content-Type':'application/json','Cache-Control':'no-store','Vary':'Origin','Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'GET, OPTIONS'};
+ const headers:Record<string,string>={'Content-Type':'application/json','Cache-Control':'no-store','Vary':'Origin','Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info','Access-Control-Allow-Methods':'GET, POST, OPTIONS'};
  if(allowed.has(origin))headers['Access-Control-Allow-Origin']=origin;
  const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
  if(origin&&!allowed.has(origin))return reply({error:'Origin not allowed'},403);
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
- if(req.method!=='GET')return reply({error:'Read only'},405);
+ if(!['GET','POST'].includes(req.method))return reply({error:'Method not allowed'},405);
  const authorization=req.headers.get('authorization')||'';
  if(!authorization.startsWith('Bearer '))return reply({error:'กรุณาเข้าสู่ระบบทีมงาน'},401);
  try {
@@ -25,19 +23,32 @@ Deno.serve(async(req:Request)=>{
   if(!u.ok)return reply({error:'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่'},401);
   const identity=await jsonFetch(url+'/rest/v1/rpc/orchard_identity',{method:'POST',headers:{...authHeaders,'Content-Type':'application/json'},body:'{}'});
   if(!['admin','editor'].includes(identity?.role))return reply({error:'เฉพาะทีมงานสวน'},403);
-  const clientId=Deno.env.get('ARDUINO_CLIENT_ID'),secret=Deno.env.get('ARDUINO_CLIENT_SECRET'),thing=Deno.env.get('ARDUINO_THING_ID');
-  if(!clientId||!secret||!thing)return reply({source:'arduino-cloud',configured:false,error:'รอตั้งค่า Arduino Cloud API ที่หลังบ้าน',missing:['ARDUINO_CLIENT_ID','ARDUINO_CLIENT_SECRET','ARDUINO_THING_ID'].filter(n=>!Deno.env.get(n))});
-  if(cached&&Date.now()<cachedUntil)return reply(cached);
-  if(!token||Date.now()>=tokenUntil){
+  let settings:any;
+  if(req.method==='POST'){
+   if(identity.role!=='admin')return reply({error:'เฉพาะแอดมินเท่านั้นที่ตั้งค่า API ได้'},403);
+   const body=await req.text();if(body.length>4096)return reply({error:'ข้อมูลยาวเกินไป'},400);
+   try{settings=JSON.parse(body)}catch{return reply({error:'รูปแบบข้อมูลไม่ถูกต้อง'},400)}
+   if(!settings||typeof settings.clientId!=='string'||!settings.clientId.trim()||settings.clientId.length>256||typeof settings.clientSecret!=='string'||!settings.clientSecret.trim()||settings.clientSecret.length>1024||typeof settings.thingId!=='string'||! /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(settings.thingId))return reply({error:'กรุณากรอก Client ID, Client Secret และ Thing ID ให้ครบและถูกต้อง'},400);
+   settings={clientId:settings.clientId.trim(),clientSecret:settings.clientSecret.trim(),thingId:settings.thingId.toLowerCase()};
+  }else{
+   const serverKey=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+   if(!serverKey)throw Error('server_configuration');
+   settings=await jsonFetch(url+'/rest/v1/rpc/orchard_arduino_read_private',{method:'POST',headers:{Authorization:'Bearer '+serverKey,apikey:serverKey,'Content-Type':'application/json'},body:'{}'});
+  }
+  const clientId=settings?.clientId||Deno.env.get('ARDUINO_CLIENT_ID'),secret=settings?.clientSecret||Deno.env.get('ARDUINO_CLIENT_SECRET'),thing=settings?.thingId||Deno.env.get('ARDUINO_THING_ID');
+  if(!clientId||!secret||!thing)return reply({source:'arduino-cloud',configured:false,canConfigure:identity.role==='admin'});
+  // Fresh OAuth per request ensures saved replacements take effect on every worker.
+  let requestToken='';
+  {
    const t=await jsonFetch('https://api2.arduino.cc/iot/v1/clients/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'client_credentials',client_id:clientId,client_secret:secret,audience:'https://api2.arduino.cc/iot'})});
    if(typeof t.access_token!=='string')throw new Error('invalid_token_response');
-   token=t.access_token;tokenUntil=Date.now()+Math.max(0,Number(t.expires_in||300)-60)*1000;
+   requestToken=t.access_token;
   }
-  const raw=await jsonFetch('https://api2.arduino.cc/iot/v2/things/'+encodeURIComponent(thing)+'/properties',{headers:{Authorization:'Bearer '+token}});
+  const raw=await jsonFetch('https://api2.arduino.cc/iot/v2/things/'+encodeURIComponent(thing)+'/properties',{headers:{Authorization:'Bearer '+requestToken}});
   if(!Array.isArray(raw))throw new Error('invalid_properties');
   const names=['temperature','humidity',...Array.from({length:8},(_,i)=>'relay'+(i+1)),'relayAll'];
   const properties=raw.filter((p:any)=>names.includes(p.variable_name)).map((p:any)=>({name:p.variable_name,value:p.last_value??null,updatedAt:p.value_updated_at??null}));
-  cached={source:'arduino-cloud',configured:true,fetchedAt:new Date().toISOString(),properties};cachedUntil=Date.now()+20000;
-  return reply(cached);
- }catch(e){const code=e instanceof Error?e.message:'';if(code==='upstream_401'){token='';tokenUntil=0;}return reply({source:'arduino-cloud',error:code==='upstream_429'?'Arduino Cloud จำกัดคำขอ กรุณารอสักครู่':'ดึงข้อมูลไม่สำเร็จ กรุณาตรวจ API Key, Thing ID และสิทธิ์ API ในบัญชี Arduino Cloud'},502);}
+  if(req.method==='POST')await jsonFetch(url+'/rest/v1/rpc/orchard_arduino_save',{method:'POST',headers:{...authHeaders,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({settings})});
+  return reply({source:'arduino-cloud',configured:true,canConfigure:identity.role==='admin',saved:req.method==='POST',fetchedAt:new Date().toISOString(),properties});
+ }catch(e){const code=e instanceof Error?e.message:'';return reply({source:'arduino-cloud',error:code==='upstream_429'?'Arduino Cloud จำกัดคำขอ กรุณารอสักครู่':req.method==='POST'?'ทดสอบหรือบันทึกไม่สำเร็จ กรุณาตรวจ API Key, Thing ID และลองใหม่':'ดึงข้อมูลไม่สำเร็จ กรุณาตรวจ API Key, Thing ID และสิทธิ์ API ในบัญชี Arduino Cloud'},502);}
 });
