@@ -1,0 +1,16 @@
+const fs=require('fs'),vm=require('vm'),ts=require('typescript'),assert=require('node:assert/strict');
+const context={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('app/read-backoff.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText,context);
+const Gate=context.exports.ReadBackoff;
+const gate=new Gate();
+assert(gate.ready(0));
+assert.equal(gate.fail(null,0),15000);
+assert(!gate.ready(14999));assert(gate.ready(15000));
+assert.equal(gate.fail(null,15000),30000);
+for(let i=0;i<20;i++)gate.fail(null,45000);
+assert(!gate.ready(344999));assert(gate.ready(345000));
+gate.success();assert(gate.ready(0));assert.equal(gate.fail('600',0),600000);
+gate.success();assert.equal(gate.fail('Thu, 01 Jan 1970 00:10:00 GMT',0),600000);
+gate.success();assert.equal(gate.fail('invalid',0),15000);
+gate.success();assert.equal(gate.fail('-1',0),15000);
+console.log('PASS: cooldown boundaries, exponential delay, 5-minute cap, recovery reset, Retry-After seconds/date, invalid headers. No network or hardware requests.');

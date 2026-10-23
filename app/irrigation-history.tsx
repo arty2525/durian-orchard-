@@ -1,6 +1,7 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useState,useRef} from 'react';
 import {getAuth} from './orchard-auth';
+import {ReadBackoff} from './read-backoff';
 import './irrigation-history.css';
 type Day={day:string;channel:string;on_minutes:number;coverage_minutes:number;opens:number;closes:number};
 type WaterInterval={channel:string;first_at:string;closed_at:string|null;minutes:number;start_detected:boolean;state:string;last_at:string};
@@ -8,14 +9,17 @@ type Event={observed_at:string;channel:string;is_on:boolean};
 type Report={from:string;to:string;firstSample:string|null;latestSample:string|null;days:Day[];events:Event[]};
 const label=(s:string)=>s==='relay8'?'ปั๊มน้ำ':'โซนบน '+String.fromCharCode(64+Number(s.slice(5)));
 const time=(s:string|null)=>s?new Date(s).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}):'ยังไม่มีข้อมูล';
-export function IrrigationHistory(){
+export function IrrigationHistory({refreshKey=0}:{refreshKey?:number}){
+ const loading=useRef(false),pending=useRef(false),backoff=useRef(new ReadBackoff());
+ const [updatedAt,setUpdatedAt]=useState<string|null>(null);
  const [intervals,setIntervals]=useState<WaterInterval[]>([]);
  const [data,setData]=useState<Report|null>(null),[channel,setChannel]=useState('relay8'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[selected,setSelected]=useState('');
- async function load(){setBusy(true);setError('');try{const c=await getAuth();const r=await c.rpc('orchard_irrigation_report');if(r.error)throw r.error;setData(r.data as Report);const spans=await c.rpc('orchard_irrigation_intervals');if(spans.error)throw spans.error;setIntervals(spans.data as WaterInterval[]);}catch{setError('โหลดประวัติไม่ได้ กรุณาเข้าสู่ระบบทีมงานแล้วลองอีกครั้ง')}finally{setBusy(false)}}
- useEffect(()=>{load();const t=setInterval(()=>{if(document.visibilityState==='visible')load()},60000);return()=>clearInterval(t)},[]);
+ async function load(){if(!backoff.current.ready()||document.visibilityState!=='visible'||navigator.onLine===false)return;if(loading.current){pending.current=true;return}loading.current=true;setBusy(true);setError('');try{const c=await getAuth();const [r,spans]=await Promise.all([c.rpc('orchard_irrigation_report'),c.rpc('orchard_irrigation_intervals')]);if(r.error)throw r.error;if(spans.error)throw spans.error;setData(r.data as Report);setIntervals(spans.data as WaterInterval[]);setUpdatedAt(new Date().toISOString());backoff.current.success();}catch{backoff.current.fail();setError('โหลดประวัติไม่ได้ ข้อมูลที่แสดงอาจเป็นข้อมูลครั้งก่อน ระบบจะเว้นช่วงแล้วลองอ่านใหม่ กรุณาตรวจการเชื่อมต่อหรือเข้าสู่ระบบทีมงานอีกครั้ง')}finally{loading.current=false;setBusy(false);if(pending.current){pending.current=false;void load()}}}
+ useEffect(()=>{const wake=()=>{if(document.visibilityState==='visible')void load()};const t=setInterval(wake,15000);document.addEventListener('visibilitychange',wake);window.addEventListener('online',wake);return()=>{clearInterval(t);document.removeEventListener('visibilitychange',wake);window.removeEventListener('online',wake)}},[]);
+ useEffect(()=>{void load()},[refreshKey]);
  const days=(data?.days||[]).filter(d=>d.channel===channel),total=days.reduce((a,d)=>a+d.on_minutes,0),coverage=days.reduce((a,d)=>a+d.coverage_minutes,0),opens=days.reduce((a,d)=>a+Number(d.opens),0),closes=days.reduce((a,d)=>a+Number(d.closes),0);
  const max=Math.max(1,...days.map(d=>d.on_minutes)),chosen=days.find(d=>d.day===selected),events=(data?.events||[]).filter(e=>e.channel===channel);
- return <section className="panel waterHistory"><div className="sectionHead"><div><span className="muted small">ประวัติการรดน้ำ</span><h3>เปิด–ปิดน้ำย้อนหลัง 1 เดือน</h3><p className="small muted">30 วันล่าสุด · เวลาไทย · เก็บอัตโนมัติทุกนาทีแม้ปิดหน้าเว็บ</p></div><button type="button" disabled={busy} onClick={load}>{busy?'กำลังโหลด…':'อัปเดตกราฟ'}</button></div>
+ return <section className="panel waterHistory"><div className="sectionHead"><div><span className="muted small">ประวัติการรดน้ำ</span><h3>เปิด–ปิดน้ำย้อนหลัง 1 เดือน</h3><p className="small muted">30 วันล่าสุด · เวลาไทย · เก็บอัตโนมัติทุกนาทีแม้ปิดหน้าเว็บ</p><p className="small muted">หน้าประวัติอัปเดตอัตโนมัติทุก 15 วินาที · แสดงข้อมูลล่าสุด: {time(updatedAt)}</p></div><button type="button" disabled={busy} onClick={load}>{busy?'กำลังโหลด…':'อัปเดตกราฟ'}</button></div>
  <div className="waterTabs" role="group" aria-label="เลือกปั๊มหรือโซน">{[8,1,2,3,4,5,6,7].map(n=><button key={n} type="button" aria-pressed={channel==='relay'+n} onClick={()=>{setChannel('relay'+n);setSelected('')}}>{label('relay'+n)}</button>)}</div>
  {error&&<p className="alert" role="alert">{error}</p>}
  <div className="waterStats"><div><small>เวลาเปิดโดยประมาณ</small><b>{coverage?total.toLocaleString('th-TH',{maximumFractionDigits:1}):'—'} <small>นาที</small></b></div><div><small>พบการเปลี่ยนเป็นเปิด</small><b>{coverage?opens:'—'} <small>ครั้ง</small></b></div><div><small>พบการเปลี่ยนเป็นปิด</small><b>{coverage?closes:'—'} <small>ครั้ง</small></b></div><div><small>ช่วงเวลาที่อ่านข้อมูลได้</small><b>{(coverage/60).toLocaleString('th-TH',{maximumFractionDigits:1})} <small>ชั่วโมง</small></b></div></div>
