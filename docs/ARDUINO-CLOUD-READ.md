@@ -26,3 +26,7 @@ The new tab remains a local schedule draft and local-IP diagnostics launcher; ES
 
 ## Web configuration
 Admins can now configure Arduino Cloud from the irrigation page. The form tests OAuth and a read of Thing properties, then saves one encrypted JSON value in Supabase Vault via an admin-checked RPC. The reader uses this value before environment-variable fallback. Secret values are never returned to the browser, embedded in built assets, or stored in localStorage. Other staff can read telemetry but cannot configure credentials. The bridge never issues irrigation commands.
+
+
+## Irrigation history
+The minute cron job calls the read bridge using a random 256-bit collector token held in Vault. The bridge validates this via a service-only boolean RPC and stores one sample per Thing per minute. No control endpoints are used. Staff can read history under RLS; only server writes are allowed. Reports use 30 Thailand calendar days, estimate ON minutes only between observations no more than 150 seconds apart, split intervals at midnight, and mark missing coverage. Transition counts are observed changes, not guaranteed physical switching. Previous Cloud state timestamps do not reconstruct missing history. Existing historical Cloud samples are not backfilled.
