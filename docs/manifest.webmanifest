@@ -1,0 +1,18 @@
+{
+  "id": "/durian-orchard-/",
+  "name": "สวนทุเรียน · Orchard",
+  "short_name": "สวนทุเรียน",
+  "description": "จัดการสวนทุเรียน ทะเบียนจุดปลูก ผลทุเรียน และระบบรดน้ำ",
+  "lang": "th",
+  "dir": "ltr",
+  "start_url": "/durian-orchard-/",
+  "scope": "/durian-orchard-/",
+  "display": "standalone",
+  "background_color": "#f5f6ef",
+  "theme_color": "#294d38",
+  "icons": [
+    {"src": "icons/orchard-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/orchard-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/orchard-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
