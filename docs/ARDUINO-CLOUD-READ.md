@@ -30,3 +30,9 @@ Admins can now configure Arduino Cloud from the irrigation page. The form tests 
 
 ## Irrigation history
 The minute cron job calls the read bridge using a random 256-bit collector token held in Vault. The bridge validates this via a service-only boolean RPC and stores one sample per Thing per minute. No control endpoints are used. Staff can read history under RLS; only server writes are allowed. Reports use 30 Thailand calendar days, estimate ON minutes only between observations no more than 150 seconds apart, split intervals at midnight, and mark missing coverage. Transition counts are observed changes, not guaranteed physical switching. Previous Cloud state timestamps do not reconstruct missing history. Existing historical Cloud samples are not backfilled.
+
+
+## Web irrigation control
+The arduino-control function requires a verified staff session and current admin/editor role. It allows relay1-7, all zones, and stop-all only. Pump follows the existing firmware callbacks; stop-all closes zones then explicitly turns relay8 off and resets relayAll. Device status is read from the attached device device_status before publishing; offline/unknown is rejected, with no intentional deferred command. Cloud connectivity is not proof of Wi-Fi RSSI/IP, relay actuation, valve position or water flow. API acceptance is not a board acknowledgement.
+
+Commands have UUID idempotency, per-Thing two-minute concurrent-command exclusion, and staff-readable/server-write-only audit records. OFF-all continues trying remaining channels if one publication fails. A timeout or partial publish never triggers an automatic replay. Cloud or other apps may change states outside this lock. A command does not configure automatic shutoff. Existing ESP32 firmware must be online and contain the confirmed mapping and callbacks. Validation used mocked publications and unauthenticated live endpoint requests; no real pump/valve commands were issued during implementation.

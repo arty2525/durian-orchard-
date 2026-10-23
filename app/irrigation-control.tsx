@@ -1,0 +1,28 @@
+'use client';
+import {useEffect,useState} from 'react';
+import {getAuth} from './orchard-auth';
+type Device={status:string;lastActivityAt?:string|null;checkedAt:string;name?:string};
+type Property={name:string;value:unknown;updatedAt:string|null};
+const stamp=(v?:string|null)=>v?new Date(v).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'}):'ยังไม่มีข้อมูล';
+const name=(t:string)=>t==='stop'?'หยุดปั๊มและทุกโซน':t==='all'?'ทุกโซน A–G':'โซนบน '+String.fromCharCode(64+Number(t.slice(5)));
+export function IrrigationControl({device,properties,onRefresh,readError}:{device?:Device;properties?:Property[];onRefresh:()=>void;readError:boolean}){
+ const [busy,setBusy]=useState(false),[pending,setPending]=useState<{target:string,value:boolean}|null>(null),[message,setMessage]=useState(''),[failed,setFailed]=useState(false),[logs,setLogs]=useState<any[]>([]),[now,setNow]=useState(Date.now());
+ const fresh=!!device?.checkedAt&&now-Date.parse(device.checkedAt)<45000&&!readError;
+ const online=fresh&&device?.status==='online';
+ async function loadLogs(){try{const c=await getAuth();const r=await c.from('irrigation_commands').select('id,target,desired,status,created_at').order('created_at',{ascending:false}).limit(10);if(!r.error)setLogs(r.data||[])}catch{}}
+ useEffect(()=>{loadLogs();const t=setInterval(()=>{setNow(Date.now());if(document.visibilityState==='visible')loadLogs()},15000);return()=>clearInterval(t)},[]);
+ async function send(){if(!pending)return;const command=pending;setPending(null);setBusy(true);setMessage('กำลังส่งคำสั่ง…');setFailed(false);
+ try{const c=await getAuth();const {data:{session}}=await c.auth.getSession();if(!session)throw Error('กรุณาเข้าสู่ระบบทีมงาน');const config:{url:string,key:string}=window.__ORCHARD_CONFIG__||await fetch('/api/config').then(r=>r.json()) as {url:string,key:string};const r=await fetch(config.url+'/functions/v1/arduino-control',{method:'POST',headers:{Authorization:'Bearer '+session.access_token,apikey:config.key,'Content-Type':'application/json'},body:JSON.stringify({...command,requestId:crypto.randomUUID()}),signal:AbortSignal.timeout(120000)});const result:any=await r.json();if(!r.ok)throw Error(result.error||'ส่งคำสั่งไม่สำเร็จ');setMessage(result.status==='sent'?'Cloud รับคำสั่งแล้ว · กำลังอ่านค่าล่าสุด ยังไม่มีการยืนยันรีเลย์จากบอร์ด':'คำสั่งนี้ถูกดำเนินการก่อนแล้ว กรุณาตรวจรายการคำสั่ง');onRefresh();}catch(e:any){setFailed(true);setMessage(e.name==='TimeoutError'?'ยังไม่ทราบผลการส่งคำสั่ง กรุณาตรวจค่าล่าสุดและรายการคำสั่งก่อนสั่งซ้ำ':e.message||'ส่งคำสั่งไม่สำเร็จ')}finally{setBusy(false);loadLogs();onRefresh()}}
+ const value=(n:string)=>properties?.find(p=>p.name===n)?.value;
+ return <section className="panel"><div className="sectionHead"><div><h3>สั่งรดน้ำจากเว็บ</h3><p className="small muted">ระบบเดิมผ่าน Arduino Cloud · เฉพาะทีมงานสวน</p></div><button type="button" disabled={busy} onClick={onRefresh}>ตรวจการเชื่อมต่อ</button></div>
+ <div className="irrigationNotice" role="status"><div><b>{online?'● ESP32 ออนไลน์กับ Arduino Cloud':fresh&&device?.status==='offline'?'● ESP32 ออฟไลน์กับ Arduino Cloud':'● ยังยืนยันการเชื่อมต่อไม่ได้'}</b><p>ตรวจล่าสุด: {stamp(device?.checkedAt)}<br/>อุปกรณ์ติดต่อ Cloud ล่าสุด: {stamp(device?.lastActivityAt)}</p><p className="small">สถานะนี้เป็นการเชื่อมต่อ ESP32 กับ Cloud ไม่ใช่การเชื่อมต่อตรงจากเบราว์เซอร์ · โค้ดเดิมยังไม่ส่ง IP / RSSI</p></div></div>
+ <p className="small muted">เปิดโซนแล้วปั๊ม GPIO16 จะทำงานตามโค้ดเดิมอัตโนมัติ ปิดโซนสุดท้ายแล้วปั๊มจะหยุด ปุ่มหยุดทั้งหมดจะปิดโซน A–G และปั๊ม</p>
+ <div className="irrigationActions"><button type="button" className="primary" disabled={!online||busy} onClick={()=>setPending({target:'all',value:true})}>เปิดทุกโซน A–G</button><button type="button" disabled={!online||busy} onClick={()=>setPending({target:'stop',value:false})}>หยุดปั๊มและทุกโซน</button></div>
+ <div className="irrigationZones">{['A','B','C','D','E','F','G'].map((l,i)=><article className="irrigationReadZone" key={l}><h3>โซนบน {l}</h3><p>ค่าที่ Cloud: <b>{value('relay'+(i+1))===true?'เปิด':value('relay'+(i+1))===false?'ปิด':'ยังไม่ทราบ'}</b></p><div className="irrigationActions"><button type="button" className="primary" disabled={!online||busy} onClick={()=>setPending({target:'relay'+(i+1),value:true})}>เปิดน้ำ</button><button type="button" disabled={!online||busy} onClick={()=>setPending({target:'relay'+(i+1),value:false})}>ปิดน้ำ</button></div></article>)}</div>
+ {pending&&<div className="irrigationNotice" role="group" aria-label="ยืนยันคำสั่งรดน้ำ"><div><b>{pending.target==='stop'?name('stop'):(pending.value?'เปิดน้ำ ':'ปิดน้ำ ')+name(pending.target)}?</b><p>คำสั่งนี้สั่งอุปกรณ์จริง ไม่มีการตั้งเวลาหยุดอัตโนมัติในรอบนี้</p><div className="irrigationActions"><button type="button" className="primary" disabled={!online||busy} onClick={send}>ยืนยันส่งคำสั่ง</button><button type="button" onClick={()=>setPending(null)}>ยกเลิก</button></div></div></div>}
+ {!online&&<p className="small muted">ปิดปุ่มสั่งงานจนกว่าจะตรวจพบ ESP32 ออนไลน์ หากต้องหยุดฉุกเฉินขณะออฟไลน์ ให้ใช้สวิตช์ที่ตู้ควบคุม</p>}
+ {message&&<p className={failed?'alert':'irrigationNotice'} role={failed?'alert':'status'}>{message}</p>}
+ <p className="small muted">Cloud รับคำสั่ง ≠ บอร์ดยืนยันรีเลย์ ≠ น้ำไหลจริง โค้ดเดิมยังไม่มีข้อมูลยืนยันสองขั้นหลัง</p>
+ <details><summary>ประวัติคำสั่งจากเว็บ 10 รายการล่าสุด</summary>{logs.length?logs.map(l=><p key={l.id} className="small">{stamp(l.created_at)} · {name(l.target)} · {l.desired?'เปิด':'ปิด'} · {l.status==='sent'?'Cloud รับแล้ว':l.status==='sending'?'กำลังส่ง / รอตรวจสอบ':l.status==='partial'?'ผลไม่แน่ชัด / อาจส่งได้บางส่วน':'ส่งไม่สำเร็จ'}</p>):<p className="small muted">ยังไม่มีคำสั่งจากเว็บ</p>}</details>
+ </section>;
+}

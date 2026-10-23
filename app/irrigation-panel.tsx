@@ -15,7 +15,7 @@ export function IrrigationPanel({onZone}:{onZone:(zone:string)=>void}){
  function save(){try{localStorage.setItem(key,JSON.stringify(draft));setMessage('บันทึกฉบับร่างในอุปกรณ์นี้แล้ว ยังไม่ได้ส่งไป ESP32');}catch{setMessage('บันทึกไม่ได้ เบราว์เซอร์ไม่อนุญาตให้เก็บข้อมูล');}}
  const total=draft.minutes.reduce((a,b)=>a+b,0);
  return <div className="irrigation">
- <section className="irrigationHero"><div><span className="eyebrow">ORCHARD WATER SYSTEM</span><h2>ดูแลน้ำ ทุกโซนในหน้าเดียว</h2><p>โซนบน A–G · 100 จุดปลูก · 200 ต้น</p></div><span className="irrigationPending"><span/>{source==='old'?'อ่านข้อมูลระบบเดิม':'เตรียมระบบใหม่'}</span></section>
+ <section className="irrigationHero"><div><span className="eyebrow">ORCHARD WATER SYSTEM</span><h2>ดูแลน้ำ ทุกโซนในหน้าเดียว</h2><p>โซนบน A–G · 100 จุดปลูก · 200 ต้น</p></div><span className="irrigationPending"><span/>{source==='old'?'ควบคุมผ่าน Arduino Cloud':'เตรียมระบบใหม่'}</span></section>
  <div className="irrigationSources" role="group" aria-label="เลือกแหล่งข้อมูล"><button type="button" aria-pressed={source==='old'} onClick={()=>setSource('old')}>ระบบเดิม · Arduino Cloud</button><button type="button" aria-pressed={source==='new'} onClick={()=>setSource('new')}>ระบบใหม่ · ESP32</button></div>
  {source==='old'?<ArduinoCloudStatus/>:<>
  <div className="irrigationNotice" role="status"><Activity size={22}/><div><b>เตรียมหน้าเว็บแล้ว ยังไม่มีข้อมูลสดจากอุปกรณ์</b><p>ตั้งค่าฉบับร่างและดูข้อมูลพื้นที่ได้ ปุ่มสั่งน้ำจะพร้อมเมื่อเชื่อมต่อระบบรับส่งคำสั่งและได้รับสถานะจากบอร์ด</p></div></div>

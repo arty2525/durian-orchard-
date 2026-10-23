@@ -1,4 +1,5 @@
 // Arduino Cloud reads + admin settings. Never sends physical control commands.
+export {};
 declare const Deno:{env:{get:(name:string)=>string|undefined};serve:(handler:(req:Request)=>Promise<Response>)=>void};
 const allowed = new Set(['https://arty2525.github.io','https://durian-orchard-art.siwat-t36.chatgpt.site']);
 async function jsonFetch(url:string,init:RequestInit={}):Promise<any> {
@@ -65,6 +66,15 @@ Deno.serve(async(req:Request)=>{
    historyRecorded=true;
   }catch{ /* Preserve telemetry when history storage is unavailable. */ }
   if(collectorToken)return reply({collected:historyRecorded,configured:true},historyRecorded?200:503);
-  return reply({source:'arduino-cloud',configured:true,canConfigure:identity.role==='admin',saved:req.method==='POST',historyRecorded,fetchedAt:new Date().toISOString(),properties});
+  let device:any={status:'unknown',checkedAt:new Date().toISOString()};
+  try{
+   const info=await jsonFetch('https://api2.arduino.cc/iot/v2/things/'+encodeURIComponent(thing),{headers:{Authorization:'Bearer '+requestToken}});
+   if(info.device_id){
+    const d=await jsonFetch('https://api2.arduino.cc/iot/v2/devices/'+encodeURIComponent(info.device_id),{headers:{Authorization:'Bearer '+requestToken}});
+    const state=String(d.device_status||'').toLowerCase();
+    device={status:['online','connected'].includes(state)?'online':['offline','disconnected'].includes(state)?'offline':'unknown',lastActivityAt:d.last_activity_at||null,name:d.name||'ESP32',checkedAt:new Date().toISOString()};
+   }
+  }catch{ /* Do not infer connection from a successful property read. */ }
+  return reply({source:'arduino-cloud',configured:true,canConfigure:identity.role==='admin',canControl:true,device,saved:req.method==='POST',historyRecorded,fetchedAt:new Date().toISOString(),properties});
  }catch(e){const code=e instanceof Error?e.message:'';return reply({source:'arduino-cloud',error:code==='upstream_429'?'Arduino Cloud จำกัดคำขอ กรุณารอสักครู่':req.method==='POST'?'ทดสอบหรือบันทึกไม่สำเร็จ กรุณาตรวจ API Key, Thing ID และลองใหม่':'ดึงข้อมูลไม่สำเร็จ กรุณาตรวจ API Key, Thing ID และสิทธิ์ API ในบัญชี Arduino Cloud'},502);}
 });
