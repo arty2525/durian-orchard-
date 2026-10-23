@@ -12,6 +12,7 @@ export function IrrigationControl({device,properties,onRefresh,onCommandSent,fet
  useEffect(()=>{const names=(properties||[]).filter(p=>p.name in previous.current&&previous.current[p.name]!==p.value).map(p=>p.name);previous.current=Object.fromEntries((properties||[]).map(p=>[p.name,p.value]));if(names.length){setChanged(names);setAnnouncement(names.map(n=>(n==='relay8'?'ปั๊มน้ำ':name(n))+' เปลี่ยนเป็น '+(properties?.find(p=>p.name===n)?.value===true?'เปิด':'ปิด')).join(' · '));}},[properties]);
  useEffect(()=>{if(!changed.length)return;const t=setTimeout(()=>setChanged([]),5000);return()=>clearTimeout(t)},[changed]);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[failed,setFailed]=useState(false),[logs,setLogs]=useState<any[]>([]),[now,setNow]=useState(Date.now());
+ useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(t)},[]);
 
  const fresh=!!device?.checkedAt&&now-Date.parse(device.checkedAt)<45000&&!readError;
  const online=fresh&&device?.status==='online';
@@ -24,7 +25,7 @@ export function IrrigationControl({device,properties,onRefresh,onCommandSent,fet
  const value=(n:string)=>properties?.find(p=>p.name===n)?.value;
  return <section className="panel"><div className="sectionHead"><div><h3>สั่งรดน้ำจากเว็บ</h3><p className="small muted">อัปเดตอัตโนมัติ · <span role="status">{refreshing?'กำลังตรวจสถานะ…':'อ่านล่าสุด: '+stamp(fetchedAt)}</span></p></div><button type="button" disabled={busy} onClick={onRefresh}>ตรวจการเชื่อมต่อ</button></div>
  <div className="irrigationNotice" role="status"><div><b>{online?'● ESP32 ออนไลน์กับ Arduino Cloud':fresh&&device?.status==='offline'?'● ESP32 ออฟไลน์กับ Arduino Cloud':'● ยังยืนยันการเชื่อมต่อไม่ได้'}</b><p>ตรวจล่าสุด: {stamp(device?.checkedAt)}<br/>อุปกรณ์ติดต่อ Cloud ล่าสุด: {stamp(device?.lastActivityAt)}</p><p className="small">สถานะนี้เป็นการเชื่อมต่อ ESP32 กับ Cloud ไม่ใช่การเชื่อมต่อตรงจากเบราว์เซอร์ · โค้ดเดิมยังไม่ส่ง IP / RSSI</p></div></div>
- <p className="small muted">เปิดโซนแล้วปั๊ม GPIO16 จะทำงานตามโค้ดเดิมอัตโนมัติ ปิดโซนสุดท้ายแล้วปั๊มจะหยุด ปุ่มหยุดทั้งหมดจะปิดโซน A–G และปั๊ม</p>
+ <p className="small muted">วันที่และเวลาขณะนี้: {stamp(new Date(now).toISOString())} · เวลาไทย</p><p className="small muted">เปิดโซนแล้วปั๊ม GPIO16 จะทำงานตามโค้ดเดิมอัตโนมัติ ปิดโซนสุดท้ายแล้วปั๊มจะหยุด ปุ่มหยุดทั้งหมดจะปิดโซน A–G และปั๊ม</p>
  <div className={'waterPumpLive '+(value('relay8')===true?'isOn':'')}><b>ปั๊มน้ำ · GPIO16</b><strong>{value('relay8')===true?'● เปิด':value('relay8')===false?'○ ปิด':'ยังไม่มีค่า'}</strong><small>ค่าใน Cloud · {stamp(properties?.find(p=>p.name==='relay8')?.updatedAt)}</small></div>
  <p className="waterLiveAnnouncement" aria-live="polite">{announcement||'รอการเปลี่ยนแปลงสถานะ'}</p>
  <div className="irrigationActions"><button type="button" className="primary" disabled={!online||busy} onClick={()=>send({target:'all',value:true})}>เปิดทุกโซน A–G</button><button type="button" disabled={!online||busy} onClick={()=>send({target:'stop',value:false})}>หยุดปั๊มและทุกโซน</button></div>
